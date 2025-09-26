@@ -19,7 +19,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ layout, vscode }) => {
     const { chatHistory, isLoading, sendMessage, clearHistory, setChatHistory } = useChat(vscode);
     const { isFirstTime, isLoading: isCheckingFirstTime, markAsReturningUser, resetFirstTimeUser } = useFirstTimeUser();
     const [inputMessage, setInputMessage] = useState('');
-    const [selectedModel, setSelectedModel] = useState<string>('claude-3-5-sonnet-20241022');
+    const [selectedModel, setSelectedModel] = useState<string>('gpt-5');
     const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({});
     const [showFullContent, setShowFullContent] = useState<{[key: string]: boolean}>({});
     const [currentContext, setCurrentContext] = useState<{fileName: string; type: string} | null>(null);
@@ -52,14 +52,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ layout, vscode }) => {
                 let fallbackModel: string;
                 switch (message.provider) {
                     case 'openai':
-                        fallbackModel = 'gpt-4o';
+                        fallbackModel = 'gpt-5';
                         break;
                     case 'openrouter':
-                        fallbackModel = 'anthropic/claude-3-7-sonnet-20250219';
+                        fallbackModel = 'google/gemini-2.5-pro';
                         break;
                     case 'anthropic':
                     default:
-                        fallbackModel = 'claude-3-5-sonnet-20241022';
+                        fallbackModel = 'gpt-5';
                         break;
                 }
                 setSelectedModel(message.model || fallbackModel);

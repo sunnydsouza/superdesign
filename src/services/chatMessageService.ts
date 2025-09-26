@@ -130,7 +130,7 @@ export class ChatMessageService {
                 // Determine which provider is currently selected to show specific error
                 const config = vscode.workspace.getConfiguration('superdesign');
                 const specificModel = config.get<string>('aiModel');
-                const provider = config.get<string>('aiModelProvider', 'anthropic');
+                const provider = config.get<string>('aiModelProvider', 'openai');
                 const openaiUrl = config.get<string>('openaiUrl');
                 
                 // Determine provider from model name if specific model is set, ignore if custom openai url is used
@@ -154,8 +154,8 @@ export class ChatMessageService {
                         configureCommand = 'superdesign.configureOpenRouterApiKey';
                         break;
                     case 'anthropic':
-                        providerName = 'Anthropic';
-                        configureCommand = 'superdesign.configureApiKey';
+                        providerName = 'Anthropic (unsupported)';
+                        configureCommand = 'workbench.action.openSettings';
                         break;
                     case 'claude-code':
                         providerName = 'Claude Code';
@@ -168,10 +168,12 @@ export class ChatMessageService {
                 }
                 
                 const hasApiKey = this.agentService.hasApiKey();
-                const displayMessage = hasApiKey ? 
-                    `Invalid ${providerName} API key. Please check your configuration.` : 
-                    `${providerName} API key not configured. Please set up your API key to use this AI model.`;
-                    
+                const displayMessage = effectiveProvider === 'anthropic' ?
+                    'Anthropic provider is no longer supported. Please switch to OpenAI or OpenRouter.' :
+                    (hasApiKey ?
+                        `Invalid ${providerName} API key. Please check your configuration.` :
+                        `${providerName} API key not configured. Please set up your API key to use this AI model.`);
+
                 webview.postMessage({
                     command: 'chatErrorWithActions',
                     error: displayMessage,

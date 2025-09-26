@@ -83,7 +83,7 @@ export class CustomAgentService implements AgentService {
     private getModel() {
         const config = vscode.workspace.getConfiguration('superdesign');
         const specificModel = config.get<string>('aiModel');
-        const provider = config.get<string>('aiModelProvider', 'anthropic');
+        const provider = config.get<string>('aiModelProvider', 'openai');
         const openaiUrl = config.get<string>('openaiUrl');
         
         this.outputChannel.appendLine(`Using AI provider: ${provider}`);
@@ -116,32 +116,14 @@ export class CustomAgentService implements AgentService {
                     apiKey: openrouterKey
                 });
                 
-                // Use specific model if available, otherwise default to Claude 3.7 Sonnet via OpenRouter
-                const openrouterModel = specificModel || 'anthropic/claude-3-7-sonnet-20250219';
+                // Use specific model if available, otherwise default to Gemini 2.5 Pro via OpenRouter
+                const openrouterModel = specificModel || 'google/gemini-2.5-pro';
                 this.outputChannel.appendLine(`Using OpenRouter model: ${openrouterModel}`);
                 return openrouter.chat(openrouterModel);
                 
             case 'anthropic':
-                const anthropicKey = config.get<string>('anthropicApiKey');
-                if (!anthropicKey) {
-                    throw new Error('Anthropic API key not configured. Please run "Configure Anthropic API Key" command.');
-                }
-                
-                this.outputChannel.appendLine(`Anthropic API key found: ${anthropicKey.substring(0, 12)}...`);
-                
-                const anthropic = createAnthropic({
-                    apiKey: anthropicKey,
-                    baseURL: "https://anthropic.helicone.ai/v1",
-                    headers: {
-                        "Helicone-Auth": `Bearer sk-helicone-utidjzi-eprey7i-tvjl25y-yl7mosi`,
-                    }
-                });
-                
-                // Use specific model if available, otherwise default to claude-3-5-sonnet
-                const anthropicModel = specificModel || 'claude-3-5-sonnet-20241022';
-                this.outputChannel.appendLine(`Using Anthropic model: ${anthropicModel}`);
-                return anthropic(anthropicModel);
-                
+                throw new Error('Anthropic provider is no longer supported. Please switch to OpenAI or OpenRouter.');
+
             case 'claude-code':
                 // This case is handled in the query method before reaching this point
                 throw new Error('Claude Code provider should be handled before getModel() is called');
@@ -149,7 +131,7 @@ export class CustomAgentService implements AgentService {
             case 'openai':
             default:
                 const openaiKey = config.get<string>('openaiApiKey');
-                 const openaiUrl = config.get<string>('openaiUrl');
+                const openaiUrl = config.get<string>('openaiUrl');
                 if (!openaiKey) {
                     throw new Error('OpenAI API key not configured. Please run "Configure OpenAI API Key" command.');
                 }
@@ -164,8 +146,8 @@ export class CustomAgentService implements AgentService {
                     }
                 });
                 
-                // Use specific model if available, otherwise default to gpt-4o
-                const openaiModel = specificModel || 'gpt-4o';
+                // Use specific model if available, otherwise default to GPT-5
+                const openaiModel = specificModel || 'gpt-5';
                 this.outputChannel.appendLine(`Using OpenAI model: ${openaiModel}`);
                 return openai(openaiModel);
         }
@@ -174,7 +156,7 @@ export class CustomAgentService implements AgentService {
     private getSystemPrompt(): string {
         const config = vscode.workspace.getConfiguration('superdesign');
         const specificModel = config.get<string>('aiModel');
-        const provider = config.get<string>('aiModelProvider', 'anthropic');
+        const provider = config.get<string>('aiModelProvider', 'openai');
         
         // Determine the actual model name being used
         let modelName: string;
@@ -184,17 +166,17 @@ export class CustomAgentService implements AgentService {
             // Use defaults based on provider
             switch (provider) {
                 case 'openai':
-                    modelName = 'gpt-4o';
+                    modelName = 'gpt-5';
                     break;
                 case 'openrouter':
-                    modelName = 'anthropic/claude-3-7-sonnet-20250219';
+                    modelName = 'google/gemini-2.5-pro';
                     break;
                 case 'claude-code':
                     modelName = 'claude-code';
                     break;
                 case 'anthropic':
                 default:
-                    modelName = 'claude-3-5-sonnet-20241022';
+                    modelName = 'gpt-5';
                     break;
             }
         }
@@ -603,7 +585,7 @@ I've created the html design, please reveiw and let me know if you need any chan
 
         // Check if claude-code is selected and use ClaudeCodeService instead
         const config = vscode.workspace.getConfiguration('superdesign');
-        const aiModelProvider = config.get<string>('aiModelProvider', 'anthropic');
+        const aiModelProvider = config.get<string>('aiModelProvider', 'openai');
         const llmProvider = config.get<string>('llmProvider', 'claude-api');
         
         // If either setting is set to claude-code, use ClaudeCodeService
@@ -943,7 +925,7 @@ I've created the html design, please reveiw and let me know if you need any chan
     hasApiKey(): boolean {
         const config = vscode.workspace.getConfiguration('superdesign');
         const specificModel = config.get<string>('aiModel');
-        const provider = config.get<string>('aiModelProvider', 'anthropic');
+        const provider = config.get<string>('aiModelProvider', 'openai');
         const openaiUrl = config.get<string>('openaiUrl');
         
         // Determine provider from model name if specific model is set, ignore if custom openai url is used
