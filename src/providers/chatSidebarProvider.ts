@@ -99,6 +99,11 @@ export class ChatSidebarProvider implements vscode.WebviewViewProvider {
         const config = vscode.workspace.getConfiguration('superdesign');
         const currentProvider = config.get<string>('aiModelProvider', 'openai');
         const currentModel = config.get<string>('aiModel');
+        const normalizedModel = this.normalizeGeminiModelId(currentModel);
+
+        if (normalizedModel && normalizedModel !== currentModel) {
+            await config.update('aiModel', normalizedModel, vscode.ConfigurationTarget.Global);
+        }
 
         // If no specific model is set, use defaults
         let defaultModel: string;
@@ -110,7 +115,7 @@ export class ChatSidebarProvider implements vscode.WebviewViewProvider {
                 defaultModel = 'claude-3-5-sonnet-20241022';
                 break;
             case 'gemini':
-                defaultModel = 'gemini-2.5-pro';
+                defaultModel = 'models/gemini-2.5-pro';
                 break;
             case 'claude-code':
                 defaultModel = 'claude-code';
@@ -124,46 +129,48 @@ export class ChatSidebarProvider implements vscode.WebviewViewProvider {
         webview.postMessage({
             command: 'currentProviderResponse',
             provider: currentProvider,
-            model: currentModel || defaultModel
+            model: normalizedModel || defaultModel
         });
     }
 
     private async handleChangeProvider(model: string, webview: vscode.Webview) {
         try {
             const config = vscode.workspace.getConfiguration('superdesign');
-            
+
+            const normalizedModel = this.normalizeGeminiModelId(model) || model;
+
             // Determine provider and API key based on model
             let provider: string;
             let apiKeyKey: string;
             let configureCommand: string;
             let displayName: string;
 
-            if (model.includes('/')) {
-                provider = 'openrouter';
-                apiKeyKey = 'openrouterApiKey';
-                configureCommand = 'superdesign.configureOpenRouterApiKey';
-                displayName = `OpenRouter (${this.getModelDisplayName(model)})`;
-            } else if (model.startsWith('claude-')) {
-                provider = 'anthropic';
-                apiKeyKey = 'anthropicApiKey';
-                configureCommand = 'superdesign.configureApiKey';
-                displayName = `Anthropic (${this.getModelDisplayName(model)})`;
-            } else if (model.startsWith('gemini-')) {
+            if (this.isGeminiModel(normalizedModel)) {
                 provider = 'gemini';
                 apiKeyKey = 'geminiApiKey';
                 configureCommand = 'superdesign.configureGeminiApiKey';
-                displayName = `Google Gemini (${this.getModelDisplayName(model)})`;
+                displayName = `Google Gemini (${this.getModelDisplayName(normalizedModel)})`;
+            } else if (normalizedModel.includes('/')) {
+                provider = 'openrouter';
+                apiKeyKey = 'openrouterApiKey';
+                configureCommand = 'superdesign.configureOpenRouterApiKey';
+                displayName = `OpenRouter (${this.getModelDisplayName(normalizedModel)})`;
+            } else if (normalizedModel.startsWith('claude-')) {
+                provider = 'anthropic';
+                apiKeyKey = 'anthropicApiKey';
+                configureCommand = 'superdesign.configureApiKey';
+                displayName = `Anthropic (${this.getModelDisplayName(normalizedModel)})`;
             } else {
                 provider = 'openai';
                 apiKeyKey = 'openaiApiKey';
                 configureCommand = 'superdesign.configureOpenAIApiKey';
-                displayName = `OpenAI (${this.getModelDisplayName(model)})`;
+                displayName = `OpenAI (${this.getModelDisplayName(normalizedModel)})`;
             }
-            
+
             // Update both provider and specific model
             await config.update('aiModelProvider', provider, vscode.ConfigurationTarget.Global);
-            await config.update('aiModel', model, vscode.ConfigurationTarget.Global);
-            
+            await config.update('aiModel', normalizedModel, vscode.ConfigurationTarget.Global);
+
             // Check if the API key is configured for the selected provider
             const apiKey = config.get<string>(apiKeyKey);
             
@@ -183,7 +190,7 @@ export class ChatSidebarProvider implements vscode.WebviewViewProvider {
             webview.postMessage({
                 command: 'providerChanged',
                 provider: provider,
-                model: model
+                model: normalizedModel
             });
 
         } catch (error) {
@@ -209,7 +216,9 @@ export class ChatSidebarProvider implements vscode.WebviewViewProvider {
             'claude-3-5-sonnet-20241022': 'Claude 3.5 Sonnet',
             // Gemini models
             'gemini-2.5-pro': 'Gemini 2.5 Pro',
+            'models/gemini-2.5-pro': 'Gemini 2.5 Pro',
             'gemini-2.5-flash': 'Gemini 2.5 Flash',
+            'models/gemini-2.5-flash': 'Gemini 2.5 Flash',
             // OpenRouter models
             'anthropic/claude-3-7-sonnet-20250219': 'Claude 3.7 Sonnet (OpenRouter)',
             'google/gemini-2.5-pro': 'Gemini 2.5 Pro (OpenRouter)',
@@ -231,5 +240,25 @@ export class ChatSidebarProvider implements vscode.WebviewViewProvider {
         };
 
         return modelNames[model] || model;
+    }
+
+    private isGeminiModel(model?: string): boolean {
+        return !!model && (model.startsWith('gemini-') || model.startsWith('models/gemini-'));
+    }
+
+    private normalizeGeminiModelId(model?: string): string | undefined {
+        if (!model) {
+            return undefined;
+        }
+
+        if (model.startsWith('models/')) {
+            return model;
+        }
+
+        if (model.startsWith('gemini-')) {
+            return `models/${model}`;
+        }
+
+        return model;
     }
 }

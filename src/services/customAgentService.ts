@@ -95,12 +95,12 @@ export class CustomAgentService implements AgentService {
         // Determine provider from model name if specific model is set, ignore if custom openai url is used
         let effectiveProvider = provider;
         if (specificModel && provider !== 'claude-code' && !(!openaiUrl && provider === 'openai')) {
-            if (specificModel.includes('/')) {
+            if (this.isGeminiModel(specificModel)) {
+                effectiveProvider = 'gemini';
+            } else if (specificModel.includes('/')) {
                 effectiveProvider = 'openrouter';
             } else if (specificModel.startsWith('claude-')) {
                 effectiveProvider = 'anthropic';
-            } else if (specificModel.startsWith('gemini-')) {
-                effectiveProvider = 'gemini';
             } else {
                 effectiveProvider = 'openai';
             }
@@ -155,7 +155,7 @@ export class CustomAgentService implements AgentService {
                     apiKey: geminiKey
                 });
 
-                const geminiModel = specificModel || 'gemini-2.5-pro';
+                const geminiModel = this.normalizeGeminiModelId(specificModel) || 'models/gemini-2.5-pro';
                 this.outputChannel.appendLine(`Using Google Gemini model: ${geminiModel}`);
                 return gemini(geminiModel);
             }
@@ -194,12 +194,14 @@ export class CustomAgentService implements AgentService {
         // Determine the actual model name being used
         let modelName: string;
         if (specificModel) {
-            modelName = specificModel;
+            modelName = this.isGeminiModel(specificModel)
+                ? this.normalizeGeminiModelId(specificModel) || specificModel
+                : specificModel;
         } else {
             // Use defaults based on provider
             switch (provider) {
                 case 'gemini':
-                    modelName = 'gemini-2.5-pro';
+                    modelName = 'models/gemini-2.5-pro';
                     break;
                 case 'openrouter':
                     modelName = 'anthropic/claude-3-7-sonnet-20250219';
@@ -967,12 +969,12 @@ I've created the html design, please reveiw and let me know if you need any chan
         // Determine provider from model name if specific model is set, ignore if custom openai url is used
         let effectiveProvider = provider;
         if (specificModel && provider !== 'claude-code' && !(!openaiUrl && provider === 'openai')) {
-            if (specificModel.includes('/')) {
+            if (this.isGeminiModel(specificModel)) {
+                effectiveProvider = 'gemini';
+            } else if (specificModel.includes('/')) {
                 effectiveProvider = 'openrouter';
             } else if (specificModel.startsWith('claude-')) {
                 effectiveProvider = 'anthropic';
-            } else if (specificModel.startsWith('gemini-')) {
-                effectiveProvider = 'gemini';
             } else {
                 effectiveProvider = 'openai';
             }
@@ -997,7 +999,7 @@ I've created the html design, please reveiw and let me know if you need any chan
         if (!errorMessage) {
             return false;
         }
-        
+
         const lowerError = errorMessage.toLowerCase();
         return lowerError.includes('api key') ||
                lowerError.includes('authentication') ||
@@ -1007,4 +1009,24 @@ I've created the html design, please reveiw and let me know if you need any chan
                lowerError.includes('api_key_invalid') ||
                lowerError.includes('unauthenticated');
     }
-} 
+
+    private isGeminiModel(model?: string): boolean {
+        return !!model && (model.startsWith('gemini-') || model.startsWith('models/gemini-'));
+    }
+
+    private normalizeGeminiModelId(model?: string): string | undefined {
+        if (!model) {
+            return undefined;
+        }
+
+        if (model.startsWith('models/')) {
+            return model;
+        }
+
+        if (model.startsWith('gemini-')) {
+            return `models/${model}`;
+        }
+
+        return model;
+    }
+}

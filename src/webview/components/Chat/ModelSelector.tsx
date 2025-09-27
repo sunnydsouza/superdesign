@@ -37,8 +37,8 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ selectedModel, onModelCha
         { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet', provider: 'Anthropic', category: 'Balanced' },
         { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', provider: 'Anthropic', category: 'Balanced' },
         // Google Gemini (direct)
-        { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', provider: 'Google Gemini', category: 'Balanced' },
-        { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', provider: 'Google Gemini', category: 'Fast' },
+        { id: 'models/gemini-2.5-pro', name: 'Gemini 2.5 Pro', provider: 'Google Gemini', category: 'Balanced' },
+        { id: 'models/gemini-2.5-flash', name: 'Gemini 2.5 Flash', provider: 'Google Gemini', category: 'Fast' },
         // OpenRouter models
         { id: 'anthropic/claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet (OpenRouter)', provider: 'OpenRouter (Anthropic)', category: 'Balanced' },
         { id: 'google/gemini-2.5-pro', name: 'Gemini 2.5 Pro (OpenRouter)', provider: 'OpenRouter (Google)', category: 'Balanced' },
