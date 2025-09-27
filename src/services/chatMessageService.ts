@@ -139,12 +139,12 @@ export class ChatMessageService {
                 let configureCommand = 'superdesign.configureOpenAIApiKey';
 
                 if (specificModel && provider !== 'claude-code' && !(!openaiUrl && provider === 'openai')) {
-                    if (specificModel.includes('/')) {
+                    if (this.isGeminiModel(specificModel)) {
+                        effectiveProvider = 'gemini';
+                    } else if (specificModel.includes('/')) {
                         effectiveProvider = 'openrouter';
                     } else if (specificModel.startsWith('claude-')) {
                         effectiveProvider = 'anthropic';
-                    } else if (specificModel.startsWith('gemini-')) {
-                        effectiveProvider = 'gemini';
                     } else {
                         effectiveProvider = 'openai';
                     }
@@ -396,7 +396,7 @@ export class ChatMessageService {
         if (this.currentRequestController) {
             Logger.info('Stopping current chat request');
             this.currentRequestController.abort();
-            
+
             // Send stopped message back to webview
             webview.postMessage({
                 command: 'chatStopped'
@@ -404,6 +404,10 @@ export class ChatMessageService {
         } else {
             Logger.info('No active chat request to stop');
         }
+    }
+
+    private isGeminiModel(model?: string): boolean {
+        return !!model && (model.startsWith('gemini-') || model.startsWith('models/gemini-'));
     }
 
     private processClaudeResponse(response: LLMMessage[]): string {

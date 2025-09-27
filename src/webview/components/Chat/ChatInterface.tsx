@@ -40,12 +40,25 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ layout, vscode }) => {
         );
     };
 
+    const normalizeGeminiModelId = (model?: string) => {
+        if (!model) {
+            return model;
+        }
+        if (model.startsWith('models/')) {
+            return model;
+        }
+        if (model.startsWith('gemini-')) {
+            return `models/${model}`;
+        }
+        return model;
+    };
+
     // Request current provider on mount
     useEffect(() => {
         vscode.postMessage({
             command: 'getCurrentProvider'
         });
-        
+
         const handleMessage = (event: MessageEvent) => {
             const message = event.data;
             if (message.command === 'currentProviderResponse') {
@@ -61,7 +74,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ layout, vscode }) => {
                         fallbackModel = 'gpt-5';
                         break;
                     case 'gemini':
-                        fallbackModel = 'gemini-2.5-pro';
+                        fallbackModel = 'models/gemini-2.5-pro';
                         break;
                     case 'claude-code':
                         fallbackModel = 'claude-code';
@@ -70,9 +83,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ layout, vscode }) => {
                         fallbackModel = 'gpt-5';
                         break;
                 }
-                setSelectedModel(message.model || fallbackModel);
+                const normalizedModel = normalizeGeminiModelId(message.model);
+                setSelectedModel(normalizedModel || fallbackModel);
             } else if (message.command === 'providerChanged') {
-                setSelectedModel(message.model);
+                const normalizedModel = normalizeGeminiModelId(message.model);
+                setSelectedModel(normalizedModel || message.model);
             }
         };
         
