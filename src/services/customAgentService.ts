@@ -2,6 +2,7 @@ import { streamText, CoreMessage } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -83,18 +84,20 @@ export class CustomAgentService implements AgentService {
     private getModel() {
         const config = vscode.workspace.getConfiguration('superdesign');
         const specificModel = config.get<string>('aiModel');
-        const provider = config.get<string>('aiModelProvider', 'anthropic');
+        const provider = config.get<string>('aiModelProvider', 'openai');
         const openaiUrl = config.get<string>('openaiUrl');
-        
+
         this.outputChannel.appendLine(`Using AI provider: ${provider}`);
         if (specificModel) {
             this.outputChannel.appendLine(`Using specific AI model: ${specificModel}`);
         }
-        
+
         // Determine provider from model name if specific model is set, ignore if custom openai url is used
         let effectiveProvider = provider;
-        if (specificModel && !(!openaiUrl && provider === 'openai')) {
-            if (specificModel.includes('/')) {
+        if (specificModel && provider !== 'claude-code' && !(!openaiUrl && provider === 'openai')) {
+            if (this.isGeminiModel(specificModel)) {
+                effectiveProvider = 'gemini';
+            } else if (specificModel.includes('/')) {
                 effectiveProvider = 'openrouter';
             } else if (specificModel.startsWith('claude-')) {
                 effectiveProvider = 'anthropic';
@@ -102,99 +105,116 @@ export class CustomAgentService implements AgentService {
                 effectiveProvider = 'openai';
             }
         }
-        
+
         switch (effectiveProvider) {
-            case 'openrouter':
+            case 'openrouter': {
                 const openrouterKey = config.get<string>('openrouterApiKey');
                 if (!openrouterKey) {
                     throw new Error('OpenRouter API key not configured. Please run "Configure OpenRouter API Key" command.');
                 }
-                
+
                 this.outputChannel.appendLine(`OpenRouter API key found: ${openrouterKey.substring(0, 12)}...`);
-                
+
                 const openrouter = createOpenRouter({
                     apiKey: openrouterKey
                 });
-                
-                // Use specific model if available, otherwise default to Claude 3.7 Sonnet via OpenRouter
+
                 const openrouterModel = specificModel || 'anthropic/claude-3-7-sonnet-20250219';
                 this.outputChannel.appendLine(`Using OpenRouter model: ${openrouterModel}`);
                 return openrouter.chat(openrouterModel);
-                
-            case 'anthropic':
+            }
+            case 'anthropic': {
                 const anthropicKey = config.get<string>('anthropicApiKey');
                 if (!anthropicKey) {
                     throw new Error('Anthropic API key not configured. Please run "Configure Anthropic API Key" command.');
                 }
-                
+
                 this.outputChannel.appendLine(`Anthropic API key found: ${anthropicKey.substring(0, 12)}...`);
-                
+
                 const anthropic = createAnthropic({
                     apiKey: anthropicKey,
-                    baseURL: "https://anthropic.helicone.ai/v1",
+                    baseURL: 'https://anthropic.helicone.ai/v1',
                     headers: {
-                        "Helicone-Auth": `Bearer sk-helicone-utidjzi-eprey7i-tvjl25y-yl7mosi`,
+                        'Helicone-Auth': `Bearer sk-helicone-utidjzi-eprey7i-tvjl25y-yl7mosi`,
                     }
                 });
-                
-                // Use specific model if available, otherwise default to claude-3-5-sonnet
+
                 const anthropicModel = specificModel || 'claude-3-5-sonnet-20241022';
                 this.outputChannel.appendLine(`Using Anthropic model: ${anthropicModel}`);
                 return anthropic(anthropicModel);
-                
+            }
+            case 'gemini': {
+                const geminiKey = config.get<string>('geminiApiKey');
+                if (!geminiKey) {
+                    throw new Error('Google Gemini API key not configured. Please run "Configure Gemini API Key" command.');
+                }
+
+                this.outputChannel.appendLine(`Google Gemini API key found: ${geminiKey.substring(0, 7)}...`);
+
+                const gemini = createGoogleGenerativeAI({
+                    apiKey: geminiKey
+                });
+
+                const geminiModel = this.normalizeGeminiModelId(specificModel) || 'models/gemini-2.5-pro';
+                this.outputChannel.appendLine(`Using Google Gemini model: ${geminiModel}`);
+                return gemini(geminiModel);
+            }
             case 'claude-code':
                 // This case is handled in the query method before reaching this point
                 throw new Error('Claude Code provider should be handled before getModel() is called');
-                
             case 'openai':
-            default:
+            default: {
                 const openaiKey = config.get<string>('openaiApiKey');
-                 const openaiUrl = config.get<string>('openaiUrl');
                 if (!openaiKey) {
                     throw new Error('OpenAI API key not configured. Please run "Configure OpenAI API Key" command.');
                 }
-                
+
                 this.outputChannel.appendLine(`OpenAI API key found: ${openaiKey.substring(0, 7)}...`);
-                
+
                 const openai = createOpenAI({
                     apiKey: openaiKey,
-                    baseURL: openaiUrl ?? "https://oai.helicone.ai/v1",
+                    baseURL: openaiUrl ?? 'https://oai.helicone.ai/v1',
                     headers: {
-                        "Helicone-Auth": `Bearer sk-helicone-utidjzi-eprey7i-tvjl25y-yl7mosi`,
+                        'Helicone-Auth': `Bearer sk-helicone-utidjzi-eprey7i-tvjl25y-yl7mosi`,
                     }
                 });
-                
-                // Use specific model if available, otherwise default to gpt-4o
-                const openaiModel = specificModel || 'gpt-4o';
+
+                const openaiModel = specificModel || 'gpt-5';
                 this.outputChannel.appendLine(`Using OpenAI model: ${openaiModel}`);
                 return openai(openaiModel);
+            }
         }
     }
 
     private getSystemPrompt(): string {
         const config = vscode.workspace.getConfiguration('superdesign');
         const specificModel = config.get<string>('aiModel');
-        const provider = config.get<string>('aiModelProvider', 'anthropic');
-        
+        const provider = config.get<string>('aiModelProvider', 'openai');
+
         // Determine the actual model name being used
         let modelName: string;
         if (specificModel) {
-            modelName = specificModel;
+            modelName = this.isGeminiModel(specificModel)
+                ? this.normalizeGeminiModelId(specificModel) || specificModel
+                : specificModel;
         } else {
             // Use defaults based on provider
             switch (provider) {
-                case 'openai':
-                    modelName = 'gpt-4o';
+                case 'gemini':
+                    modelName = 'models/gemini-2.5-pro';
                     break;
                 case 'openrouter':
                     modelName = 'anthropic/claude-3-7-sonnet-20250219';
                     break;
+                case 'anthropic':
+                    modelName = 'claude-3-5-sonnet-20241022';
+                    break;
                 case 'claude-code':
                     modelName = 'claude-code';
                     break;
-                case 'anthropic':
+                case 'openai':
                 default:
-                    modelName = 'claude-3-5-sonnet-20241022';
+                    modelName = 'gpt-5';
                     break;
             }
         }
@@ -603,7 +623,7 @@ I've created the html design, please reveiw and let me know if you need any chan
 
         // Check if claude-code is selected and use ClaudeCodeService instead
         const config = vscode.workspace.getConfiguration('superdesign');
-        const aiModelProvider = config.get<string>('aiModelProvider', 'anthropic');
+        const aiModelProvider = config.get<string>('aiModelProvider', 'openai');
         const llmProvider = config.get<string>('llmProvider', 'claude-api');
         
         // If either setting is set to claude-code, use ClaudeCodeService
@@ -943,13 +963,15 @@ I've created the html design, please reveiw and let me know if you need any chan
     hasApiKey(): boolean {
         const config = vscode.workspace.getConfiguration('superdesign');
         const specificModel = config.get<string>('aiModel');
-        const provider = config.get<string>('aiModelProvider', 'anthropic');
+        const provider = config.get<string>('aiModelProvider', 'openai');
         const openaiUrl = config.get<string>('openaiUrl');
-        
+
         // Determine provider from model name if specific model is set, ignore if custom openai url is used
         let effectiveProvider = provider;
-        if (specificModel && !(!openaiUrl && provider === 'openai')) {
-            if (specificModel.includes('/')) {
+        if (specificModel && provider !== 'claude-code' && !(!openaiUrl && provider === 'openai')) {
+            if (this.isGeminiModel(specificModel)) {
+                effectiveProvider = 'gemini';
+            } else if (specificModel.includes('/')) {
                 effectiveProvider = 'openrouter';
             } else if (specificModel.startsWith('claude-')) {
                 effectiveProvider = 'anthropic';
@@ -957,12 +979,14 @@ I've created the html design, please reveiw and let me know if you need any chan
                 effectiveProvider = 'openai';
             }
         }
-        
+
         switch (effectiveProvider) {
             case 'openrouter':
                 return !!config.get<string>('openrouterApiKey');
             case 'anthropic':
                 return !!config.get<string>('anthropicApiKey');
+            case 'gemini':
+                return !!config.get<string>('geminiApiKey');
             case 'claude-code':
                 return true; // Claude Code doesn't require an API key
             case 'openai':
@@ -975,7 +999,7 @@ I've created the html design, please reveiw and let me know if you need any chan
         if (!errorMessage) {
             return false;
         }
-        
+
         const lowerError = errorMessage.toLowerCase();
         return lowerError.includes('api key') ||
                lowerError.includes('authentication') ||
@@ -985,4 +1009,24 @@ I've created the html design, please reveiw and let me know if you need any chan
                lowerError.includes('api_key_invalid') ||
                lowerError.includes('unauthenticated');
     }
-} 
+
+    private isGeminiModel(model?: string): boolean {
+        return !!model && (model.startsWith('gemini-') || model.startsWith('models/gemini-'));
+    }
+
+    private normalizeGeminiModelId(model?: string): string | undefined {
+        if (!model) {
+            return undefined;
+        }
+
+        if (model.startsWith('models/')) {
+            return model;
+        }
+
+        if (model.startsWith('gemini-')) {
+            return `models/${model}`;
+        }
+
+        return model;
+    }
+}

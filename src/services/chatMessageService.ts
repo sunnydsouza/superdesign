@@ -130,16 +130,18 @@ export class ChatMessageService {
                 // Determine which provider is currently selected to show specific error
                 const config = vscode.workspace.getConfiguration('superdesign');
                 const specificModel = config.get<string>('aiModel');
-                const provider = config.get<string>('aiModelProvider', 'anthropic');
+                const provider = config.get<string>('aiModelProvider', 'openai');
                 const openaiUrl = config.get<string>('openaiUrl');
-                
+
                 // Determine provider from model name if specific model is set, ignore if custom openai url is used
                 let effectiveProvider = provider;
                 let providerName = 'AI';
-                let configureCommand = 'superdesign.configureApiKey';
-                
-                if (specificModel && !(!openaiUrl && provider === 'openai')) {
-                    if (specificModel.includes('/')) {
+                let configureCommand = 'superdesign.configureOpenAIApiKey';
+
+                if (specificModel && provider !== 'claude-code' && !(!openaiUrl && provider === 'openai')) {
+                    if (this.isGeminiModel(specificModel)) {
+                        effectiveProvider = 'gemini';
+                    } else if (specificModel.includes('/')) {
                         effectiveProvider = 'openrouter';
                     } else if (specificModel.startsWith('claude-')) {
                         effectiveProvider = 'anthropic';
@@ -147,7 +149,7 @@ export class ChatMessageService {
                         effectiveProvider = 'openai';
                     }
                 }
-                
+
                 switch (effectiveProvider) {
                     case 'openrouter':
                         providerName = 'OpenRouter';
@@ -157,11 +159,16 @@ export class ChatMessageService {
                         providerName = 'Anthropic';
                         configureCommand = 'superdesign.configureApiKey';
                         break;
+                    case 'gemini':
+                        providerName = 'Google Gemini';
+                        configureCommand = 'superdesign.configureGeminiApiKey';
+                        break;
                     case 'claude-code':
                         providerName = 'Claude Code';
                         configureCommand = 'workbench.action.openSettings';
                         break;
                     case 'openai':
+                    default:
                         providerName = 'OpenAI';
                         configureCommand = 'superdesign.configureOpenAIApiKey';
                         break;
@@ -389,7 +396,7 @@ export class ChatMessageService {
         if (this.currentRequestController) {
             Logger.info('Stopping current chat request');
             this.currentRequestController.abort();
-            
+
             // Send stopped message back to webview
             webview.postMessage({
                 command: 'chatStopped'
@@ -397,6 +404,10 @@ export class ChatMessageService {
         } else {
             Logger.info('No active chat request to stop');
         }
+    }
+
+    private isGeminiModel(model?: string): boolean {
+        return !!model && (model.startsWith('gemini-') || model.startsWith('models/gemini-'));
     }
 
     private processClaudeResponse(response: LLMMessage[]): string {

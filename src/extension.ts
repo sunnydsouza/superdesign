@@ -1270,9 +1270,13 @@ export function activate(context: vscode.ExtensionContext) {
 		await configureOpenAIApiKey();
 	});
 
-	const configureOpenRouterApiKeyDisposable = vscode.commands.registerCommand('superdesign.configureOpenRouterApiKey', async () => {
-		await configureOpenRouterApiKey();
-	});
+        const configureOpenRouterApiKeyDisposable = vscode.commands.registerCommand('superdesign.configureOpenRouterApiKey', async () => {
+                await configureOpenRouterApiKey();
+        });
+
+        const configureGeminiApiKeyDisposable = vscode.commands.registerCommand('superdesign.configureGeminiApiKey', async () => {
+                await configureGeminiApiKey();
+        });
 
   const configureOpenAIUrlDisposable = vscode.commands.registerCommand('superdesign.configureOpenAIUrl', async () => {
     await configureOpenAIUrl();
@@ -1393,8 +1397,9 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		helloWorldDisposable, 
 		configureApiKeyDisposable,
-		configureOpenAIApiKeyDisposable,
-		configureOpenRouterApiKeyDisposable,
+                configureOpenAIApiKeyDisposable,
+                configureOpenRouterApiKeyDisposable,
+                configureGeminiApiKeyDisposable,
     configureOpenAIUrlDisposable,
 		sidebarDisposable,
 		showSidebarDisposable,
@@ -1454,7 +1459,7 @@ async function configureAnthropicApiKey() {
 
 // Function to configure OpenAI API key
 async function configureOpenAIApiKey() {
-	const currentKey = vscode.workspace.getConfiguration('superdesign').get<string>('openaiApiKey');
+        const currentKey = vscode.workspace.getConfiguration('superdesign').get<string>('openaiApiKey');
 
 	const input = await vscode.window.showInputBox({
 		title: 'Configure OpenAI API Key',
@@ -1499,47 +1504,87 @@ async function configureOpenAIApiKey() {
 
 // Function to configure OpenRouter API key
 async function configureOpenRouterApiKey() {
-	const currentKey = vscode.workspace.getConfiguration('superdesign').get<string>('openrouterApiKey');
+        const currentKey = vscode.workspace.getConfiguration('superdesign').get<string>('openrouterApiKey');
 
-	const input = await vscode.window.showInputBox({
-		title: 'Configure OpenRouter API Key',
-		prompt: 'Enter your OpenRouter API key (get one from https://openrouter.ai/)',
-		value: currentKey ? '••••••••••••••••' : '',
-		password: true,
-		placeHolder: 'sk-...',
-		validateInput: (value) => {
-			if (!value || value.trim().length === 0) {
-				return 'API key cannot be empty';
-			}
-			if (value === '••••••••••••••••') {
-				return null; // User didn't change the masked value, that's OK
-			}
-			if (!value.startsWith('sk-')) {
-				return 'OpenRouter API keys should start with "sk-"';
-			}
-			return null;
-		}
-	});
+        const input = await vscode.window.showInputBox({
+                title: 'Configure OpenRouter API Key',
+                prompt: 'Enter your OpenRouter API key (get one from https://openrouter.ai/)',
+                value: currentKey ? '••••••••••••••••' : '',
+                password: true,
+                placeHolder: 'sk-...',
+                validateInput: (value) => {
+                        if (!value || value.trim().length === 0) {
+                                return 'API key cannot be empty';
+                        }
+                        if (value === '••••••••••••••••') {
+                                return null; // User didn't change the masked value, that's OK
+                        }
+                        if (!value.startsWith('sk-')) {
+                                return 'OpenRouter API keys should start with "sk-"';
+                        }
+                        return null;
+                }
+        });
 
-	if (input !== undefined) {
-		// Only update if user didn't just keep the masked value
-		if (input !== '••••••••••••••••') {
-			try {
-				await vscode.workspace.getConfiguration('superdesign').update(
-					'openrouterApiKey', 
-					input.trim(), 
-					vscode.ConfigurationTarget.Global
-				);
-				vscode.window.showInformationMessage('✅ OpenRouter API key configured successfully!');
-			} catch (error) {
-				vscode.window.showErrorMessage(`Failed to save API key: ${error}`);
-			}
-		} else if (currentKey) {
-			vscode.window.showInformationMessage('API key unchanged (already configured)');
-		} else {
-			vscode.window.showWarningMessage('No API key was set');
-		}
-	}
+        if (input !== undefined) {
+                if (input !== '••••••••••••••••') {
+                        try {
+                                await vscode.workspace.getConfiguration('superdesign').update(
+                                        'openrouterApiKey',
+                                        input.trim(),
+                                        vscode.ConfigurationTarget.Global
+                                );
+                                vscode.window.showInformationMessage('✅ OpenRouter API key configured successfully!');
+                        } catch (error) {
+                                vscode.window.showErrorMessage(`Failed to save API key: ${error}`);
+                        }
+                } else if (currentKey) {
+                        vscode.window.showInformationMessage('API key unchanged (already configured)');
+                } else {
+                        vscode.window.showWarningMessage('No API key was set');
+                }
+        }
+}
+
+// Function to configure Google Gemini API key
+async function configureGeminiApiKey() {
+        const currentKey = vscode.workspace.getConfiguration('superdesign').get<string>('geminiApiKey');
+
+        const input = await vscode.window.showInputBox({
+                title: 'Configure Gemini API Key',
+                prompt: 'Enter your Google Gemini API key (get one from https://aistudio.google.com/app/apikey)',
+                value: currentKey ? '••••••••••••••••' : '',
+                password: true,
+                placeHolder: 'AI... orAIza...',
+                validateInput: (value) => {
+                        if (!value || value.trim().length === 0) {
+                                return 'API key cannot be empty';
+                        }
+                        if (value === '••••••••••••••••') {
+                                return null; // User didn't change the masked value, that's OK
+                        }
+                        return null;
+                }
+        });
+
+        if (input !== undefined) {
+                if (input !== '••••••••••••••••') {
+                        try {
+                                await vscode.workspace.getConfiguration('superdesign').update(
+                                        'geminiApiKey',
+                                        input.trim(),
+                                        vscode.ConfigurationTarget.Global
+                                );
+                                vscode.window.showInformationMessage('✅ Gemini API key configured successfully!');
+                        } catch (error) {
+                                vscode.window.showErrorMessage(`Failed to save API key: ${error}`);
+                        }
+                } else if (currentKey) {
+                        vscode.window.showInformationMessage('API key unchanged (already configured)');
+                } else {
+                        vscode.window.showWarningMessage('No API key was set');
+                }
+        }
 }
 
 // Function to configure OpenAI url
